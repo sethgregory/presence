@@ -16,6 +16,8 @@
         <string>http://homeassistant.local:8123</string>
         <key>HA_TOKEN</key>
         <string>YOUR_LONG_LIVED_ACCESS_TOKEN</string>
+        <key>HA_ENTITY</key>
+        <string>input_boolean.meeting</string>
     </dict>
 
     <key>StartInterval</key>

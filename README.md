@@ -61,6 +61,7 @@ The script updates `input_boolean.meeting` via the HA REST API when status chang
 ```bash
 export HA_URL=http://homeassistant.local:8123
 export HA_TOKEN=<long-lived access token>
+export HA_ENTITY=input_boolean.meeting  # default, override if needed
 ```
 
 Generate a token in Home Assistant under **Profile → Security → Long-Lived Access Tokens**.

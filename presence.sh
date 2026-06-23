@@ -15,6 +15,7 @@ usage() {
   echo "Home Assistant (optional):"
   echo "  export HA_URL=http://homeassistant.local:8123"
   echo "  export HA_TOKEN=<long-lived access token>"
+  echo "  export HA_ENTITY=input_boolean.meeting  (default)"
   exit 1
 }
 
@@ -42,6 +43,8 @@ update_ha() {
   local status="$1"
   [[ -z "${HA_URL:-}" || -z "${HA_TOKEN:-}" ]] && return
 
+  local entity="${HA_ENTITY:-input_boolean.meeting}"
+  local domain="${entity%%.*}"
   local service
   if [[ "$status" == "in_meeting" ]]; then
     service="turn_on"
@@ -53,8 +56,8 @@ update_ha() {
     -X POST \
     -H "Authorization: Bearer $HA_TOKEN" \
     -H "Content-Type: application/json" \
-    -d '{"entity_id":"input_boolean.meeting"}' \
-    "${HA_URL}/api/services/input_boolean/${service}" \
+    -d "{\"entity_id\":\"${entity}\"}" \
+    "${HA_URL}/api/services/${domain}/${service}" \
     > /dev/null \
     || echo "Warning: failed to update Home Assistant" >&2
 }
