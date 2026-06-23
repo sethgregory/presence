@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sethgregory.presence</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/Username/Apps/presence/presence.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HA_URL</key>
+        <string>http://homeassistant.local:8123</string>
+        <key>HA_TOKEN</key>
+        <string>YOUR_LONG_LIVED_ACCESS_TOKEN</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>15</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/Username/Library/Logs/presence.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/Username/Library/Logs/presence.err.log</string>
+</dict>
+</plist>
