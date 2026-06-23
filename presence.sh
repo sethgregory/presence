@@ -32,36 +32,34 @@ crd_running() {
 }
 
 # When CRD is running it holds the mic persistently. Confirm a real meeting is
-# happening by checking whether any meeting app process has active WebRTC UDP
-# sockets (media streams) beyond its idle baseline.
+# happening by checking whether any meeting app has active WebRTC UDP sockets
+# bound to a specific local address. When idle, Teams only has *:50074
+# (wildcard); in a meeting it binds many sockets to real local IPs for RTP.
 meeting_app_webrtc_active() {
-  local pids udp_sockets
+  local pids udp_count
 
-  # Collect PIDs for known native meeting apps
+  # Specific meeting app processes only — broad renderer globs pull in hundreds
+  # of unrelated PIDs and slow down the lsof call.
   pids=$(pgrep -x "MSTeams" 2>/dev/null)
   pids+=$'\n'$(pgrep -x "zoom.us" 2>/dev/null)
   pids+=$'\n'$(pgrep -x "Webex" 2>/dev/null)
   pids+=$'\n'$(pgrep -x "FaceTime" 2>/dev/null)
 
-  # Chromium audio + renderer helpers (Teams, Chrome/Meet, Slack, etc. all use these)
-  # WebRTC media UDP sockets may live on either the audio service or renderer process
-  pids+=$'\n'$(pgrep -f "audio.mojom.AudioService" 2>/dev/null)
-  pids+=$'\n'$(pgrep -f "WebView Helper \(Renderer\)" 2>/dev/null)
-  pids+=$'\n'$(pgrep -f "Helper \(Renderer\)" 2>/dev/null)
-
   pids=$(echo "$pids" | grep -v '^$' | sort -u | tr '\n' ',')
   pids="${pids%,}"
   [[ -z "$pids" ]] && return 1
 
-  # Count established UDP flows to remote addresses (IP:PORT->REMOTE:PORT).
-  # Bound-only sockets like *:50074 (Teams' persistent ICE socket) are excluded
-  # since they have no remote side yet and are present even when idle.
-  udp_sockets=$(lsof -a -p "$pids" -i UDP 2>/dev/null \
+  # Count UDP sockets bound to a real local address (not wildcard *:PORT).
+  # Teams uses unconnected UDP sockets for RTP/ICE so they show as
+  # "192.168.x.x:PORT" with no arrow — grep -v "^\*" excludes the idle
+  # wildcard sockets, leaving only in-call media bindings.
+  udp_count=$(lsof -a -p "$pids" -i UDP 2>/dev/null \
     | awk 'NR>1 {print $NF}' \
-    | grep -- "->" \
+    | grep -v "^\*" \
+    | grep -v "mdns" \
     | wc -l)
 
-  [[ "$udp_sockets" -gt 0 ]]
+  [[ "$udp_count" -gt 0 ]]
 }
 
 get_status() {
