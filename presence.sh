@@ -27,13 +27,54 @@ mic_in_use() {
   "$BINARY" 2>/dev/null | grep -q "^in_use$"
 }
 
+crd_running() {
+  pgrep -f "remoting_me2me_host" > /dev/null 2>&1
+}
+
+# When CRD is running it holds the mic persistently. Confirm a real meeting is
+# happening by checking whether any meeting app process has active WebRTC UDP
+# sockets (media streams) beyond its idle baseline.
+meeting_app_webrtc_active() {
+  local pids udp_sockets
+
+  # Collect PIDs for known native meeting apps
+  pids=$(pgrep -x "MSTeams" 2>/dev/null)
+  pids+=$'\n'$(pgrep -x "zoom.us" 2>/dev/null)
+  pids+=$'\n'$(pgrep -x "Webex" 2>/dev/null)
+  pids+=$'\n'$(pgrep -x "FaceTime" 2>/dev/null)
+
+  # Chromium audio + renderer helpers (Teams, Chrome/Meet, Slack, etc. all use these)
+  # WebRTC media UDP sockets may live on either the audio service or renderer process
+  pids+=$'\n'$(pgrep -f "audio.mojom.AudioService" 2>/dev/null)
+  pids+=$'\n'$(pgrep -f "WebView Helper \(Renderer\)" 2>/dev/null)
+  pids+=$'\n'$(pgrep -f "Helper \(Renderer\)" 2>/dev/null)
+
+  pids=$(echo "$pids" | grep -v '^$' | sort -u | tr '\n' ',')
+  pids="${pids%,}"
+  [[ -z "$pids" ]] && return 1
+
+  # Count established UDP flows to remote addresses (IP:PORT->REMOTE:PORT).
+  # Bound-only sockets like *:50074 (Teams' persistent ICE socket) are excluded
+  # since they have no remote side yet and are present even when idle.
+  udp_sockets=$(lsof -a -p "$pids" -i UDP 2>/dev/null \
+    | awk 'NR>1 {print $NF}' \
+    | grep -- "->" \
+    | wc -l)
+
+  [[ "$udp_sockets" -gt 0 ]]
+}
+
 get_status() {
   if ! teams_running; then
     echo "teams_not_running"
     return
   fi
   if mic_in_use; then
-    echo "in_meeting"
+    if crd_running && ! meeting_app_webrtc_active; then
+      echo "available"
+    else
+      echo "in_meeting"
+    fi
   else
     echo "available"
   fi
